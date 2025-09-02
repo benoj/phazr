@@ -1,0 +1,60 @@
+# Example configuration that only uses local operations (no Kubernetes required)
+
+versions:
+  "1.0.0":
+    setup:
+      - command: "echo 'Starting local development setup...' && sleep 0.$((RANDOM % 4 + 1))"
+        description: "Initialize setup"
+        type: "script_exec"
+    
+    environment:
+      - command: "echo 'Setting up Python virtual environment...' && sleep 0.$((RANDOM % 6 + 2))"
+        description: "Create Python venv"
+        type: "script_exec"
+        timeout: 30
+      
+      - command: "echo 'Installing dependencies...' && sleep $((RANDOM % 2 + 1)).$((RANDOM % 10))"
+        description: "Install project dependencies"
+        type: "script_exec"
+        timeout: 60
+    
+    database:
+      - command: "echo 'Initializing local database...' && sleep 0.$((RANDOM % 8 + 3))"
+        description: "Setup local database"
+        type: "script_exec"
+        test_command: "echo 'Database exists'"
+      
+      - command: "echo 'Running database migrations...' && sleep 0.$((RANDOM % 5 + 2))"
+        description: "Apply migrations"
+        type: "script_exec"
+        retry_count: 2
+        retry_delay: 5
+    
+    validation:
+      - command: "echo 'Checking environment...' && sleep 0.$((RANDOM % 3 + 1))"
+        description: "Validate setup"
+        type: "script_exec"
+      
+      - command: "echo 'Setup complete!' && sleep 0.$((RANDOM % 2 + 1))"
+        description: "Final confirmation"
+        type: "script_exec"
+
+environment:
+  name: "local-development"
+  namespace: "default"
+  # No context needed for local-only operations
+
+execution:
+  dry_run: false
+  interactive: true
+  verbose: true
+
+config:
+  phase_mappings:
+    environment_setup:
+      - "setup"
+      - "environment"
+    data_setup:
+      - "database"
+    validation:
+      - "validation"

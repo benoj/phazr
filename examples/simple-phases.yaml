@@ -1,0 +1,60 @@
+phases:
+  - name: "setup"
+    description: "Initial setup"
+    groups: ["init"]
+    
+  - name: "build"
+    description: "Build the application"
+    groups: ["compile", "package"]
+    depends_on: ["setup"]
+    
+  - name: "test"
+    description: "Run tests"
+    groups: ["unit_tests", "integration_tests"]
+    depends_on: ["build"]
+    parallel_groups: true
+    
+  - name: "deploy"
+    description: "Deploy to environment"
+    groups: ["deployment"]
+    depends_on: ["test"]
+
+versions:
+  "1.0.0":
+    init:
+      - command: "echo 'Initializing project...' && sleep 0.$((RANDOM % 5 + 2))"
+        description: "Initialize"
+        type: "script_exec"
+        
+    compile:
+      - command: "echo 'Compiling source code...' && sleep $((RANDOM % 2 + 1)).$((RANDOM % 10))"
+        description: "Compile code"
+        type: "script_exec"
+        
+    package:
+      - command: "echo 'Creating deployment package...' && sleep 0.$((RANDOM % 7 + 3))"
+        description: "Package application"
+        type: "script_exec"
+        
+    unit_tests:
+      - command: "echo 'Running unit tests...' && sleep 0.$((RANDOM % 6 + 1))"
+        description: "Unit tests"
+        type: "script_exec"
+        
+    integration_tests:
+      - command: "echo 'Running integration tests...' && sleep 0.$((RANDOM % 8 + 2))"
+        description: "Integration tests"
+        type: "script_exec"
+        
+    deployment:
+      - command: "echo 'Deploying application...' && sleep $((RANDOM % 3 + 1)).$((RANDOM % 10))"
+        description: "Deploy app"
+        type: "script_exec"
+
+environment:
+  name: "development"
+  namespace: "dev"
+
+execution:
+  dry_run: false
+  verbose: false

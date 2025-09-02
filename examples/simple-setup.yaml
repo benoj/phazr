@@ -1,0 +1,50 @@
+# Example configuration for a simple development environment setup
+
+versions:
+  "1.0.0":
+    prerequisites:
+      - command: "echo 'Checking prerequisites...'"
+        description: "Check environment requirements"
+        type: "script_exec"
+    
+    database_setup:
+      - command: "echo 'Creating database...'"
+        description: "Initialize database"
+        type: "script_exec"
+        timeout: 60
+      
+      - command: "echo 'Running migrations...'"
+        description: "Apply database migrations"
+        type: "script_exec"
+        test_command: "echo 'Testing database connection...'"
+    
+    service_deployment:
+      - command: "kubectl apply -f manifests/app.yaml"
+        description: "Deploy application"
+        type: "kubectl_apply"
+        namespace: "dev"
+        wait_for_ready: true
+      
+      - command: "echo 'Application deployed'"
+        description: "Deployment confirmation"
+        type: "script_exec"
+
+environment:
+  name: "development"
+  namespace: "default"
+  # context: "dev-cluster"  # Uncomment and set if using specific context
+
+execution:
+  dry_run: false
+  interactive: true
+  verbose: false
+  continue_on_error: false
+
+config:
+  phase_mappings:
+    prerequisites:
+      - "prerequisites"
+    data_setup:
+      - "database_setup"
+    services:
+      - "service_deployment"

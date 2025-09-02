@@ -1,0 +1,109 @@
+# Example with fully configurable dynamic phases
+
+phases:
+  - name: "validate"
+    description: "Validate environment and prerequisites"
+    icon: "🔍"
+    groups: ["validation_checks"]
+    
+  - name: "prepare"
+    description: "Prepare the environment"
+    icon: "🛠️"
+    groups: ["environment_prep", "dependency_install"]
+    depends_on: ["validate"]
+    
+  - name: "database"
+    description: "Set up database and run migrations"
+    icon: "🗄️"
+    groups: ["db_setup", "db_migrations"]
+    depends_on: ["prepare"]
+    continue_on_error: false
+    
+  - name: "deploy"
+    description: "Deploy services"
+    icon: "🚀"
+    groups: ["service_deployment"]
+    depends_on: ["database"]
+    parallel_groups: true  # Deploy services in parallel
+    
+  - name: "verify"
+    description: "Verify deployment"
+    icon: "✅"
+    groups: ["health_checks", "smoke_tests"]
+    depends_on: ["deploy"]
+    continue_on_error: true  # Don't stop if verification fails
+    
+  - name: "cleanup"
+    description: "Clean up temporary resources"
+    icon: "🧹"
+    groups: ["temp_cleanup"]
+    depends_on: ["verify"]
+    enabled: false  # Can be toggled on/off
+
+versions:
+  "1.0.0":
+    validation_checks:
+      - command: "echo 'Checking prerequisites...' && sleep 0.$((RANDOM % 5 + 1))"
+        description: "Check system prerequisites"
+        type: "script_exec"
+        
+    environment_prep:
+      - command: "echo 'Setting up environment variables...' && sleep 0.$((RANDOM % 8 + 2))"
+        description: "Configure environment"
+        type: "script_exec"
+        
+    dependency_install:
+      - command: "echo 'Installing dependencies...' && sleep $((RANDOM % 3 + 1)).$((RANDOM % 10))"
+        description: "Install required packages"
+        type: "script_exec"
+        timeout: 120
+        
+    db_setup:
+      - command: "echo 'Creating database...' && sleep $((RANDOM % 2 + 1)).$((RANDOM % 10))"
+        description: "Create database"
+        type: "script_exec"
+        
+    db_migrations:
+      - command: "echo 'Running migrations...' && sleep 0.$((RANDOM % 7 + 3))"
+        description: "Apply database migrations"
+        type: "script_exec"
+        retry_count: 2
+        retry_delay: 5
+        
+    service_deployment:
+      - command: "echo 'Deploying service A...' && sleep 0.$((RANDOM % 6 + 2))"
+        description: "Deploy service A"
+        type: "script_exec"
+        
+      - command: "echo 'Deploying service B...' && sleep 0.$((RANDOM % 8 + 1))"
+        description: "Deploy service B"
+        type: "script_exec"
+        
+      - command: "echo 'Deploying service C...' && sleep 0.$((RANDOM % 5 + 3))"
+        description: "Deploy service C"
+        type: "script_exec"
+        
+    health_checks:
+      - command: "echo 'Checking service health...' && sleep 0.$((RANDOM % 4 + 1))"
+        description: "Health check all services"
+        type: "script_exec"
+        
+    smoke_tests:
+      - command: "echo 'Running smoke tests...' && sleep 0.$((RANDOM % 9 + 1))"
+        description: "Run basic functionality tests"
+        type: "script_exec"
+        
+    temp_cleanup:
+      - command: "echo 'Removing temporary files...' && sleep 0.$((RANDOM % 3 + 1))"
+        description: "Clean up temp resources"
+        type: "script_exec"
+
+environment:
+  name: "production"
+  namespace: "prod"
+
+execution:
+  dry_run: false
+  interactive: true
+  verbose: true
+  parallel: false  # Can be overridden per phase

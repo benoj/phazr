@@ -1,0 +1,99 @@
+# Example configuration for microservices environment orchestration
+
+versions:
+  "2.0.0":
+    infrastructure:
+      - command: "kubectl apply -f infrastructure/namespace.yaml"
+        description: "Create namespace"
+        type: "kubectl_apply"
+        
+      - command: "kubectl apply -f infrastructure/secrets.yaml"
+        description: "Deploy secrets"
+        type: "kubectl_apply"
+        namespace: "microservices"
+    
+    databases:
+      - command: "kubectl apply -f databases/mongodb.yaml"
+        description: "Deploy MongoDB"
+        type: "kubectl_apply"
+        namespace: "microservices"
+        wait_for_ready: true
+        timeout: 300
+      
+      - command: "kubectl apply -f databases/redis.yaml"
+        description: "Deploy Redis"
+        type: "kubectl_apply"
+        namespace: "microservices"
+        wait_for_ready: true
+    
+    migrations:
+      - command: "python migrate.py"
+        description: "Run user service migrations"
+        type: "kubectl_exec"
+        service: "user-service"
+        namespace: "microservices"
+        container: "app"
+        test_command: "python check_migration.py"
+      
+      - command: "python migrate.py"
+        description: "Run order service migrations"
+        type: "kubectl_exec"
+        service: "order-service"
+        namespace: "microservices"
+        container: "app"
+    
+    services:
+      - command: "kubectl apply -f services/"
+        description: "Deploy all microservices"
+        type: "kubectl_apply"
+        namespace: "microservices"
+        wait_for_ready: true
+      
+      - command: "kubectl rollout restart deployment/api-gateway"
+        description: "Restart API gateway"
+        type: "kubectl_restart"
+        service: "api-gateway"
+        namespace: "microservices"
+        wait_for_ready: true
+    
+    validation:
+      - command: "curl -f http://api-gateway.microservices/health"
+        description: "Health check API gateway"
+        type: "script_exec"
+        retry_count: 3
+        retry_delay: 10
+      
+      - command: '{"url": "http://api-gateway.microservices/api/v1/status", "method": "GET"}'
+        description: "Check API status"
+        type: "http_request"
+        timeout: 30
+
+environment:
+  name: "microservices-dev"
+  namespace: "microservices"
+  context: "dev-cluster"
+  metadata:
+    region: "us-west-2"
+    cluster: "eks-dev"
+
+execution:
+  dry_run: false
+  interactive: true
+  parallel: true
+  max_parallel: 3
+  continue_on_error: false
+  verbose: true
+  log_level: "INFO"
+
+config:
+  phase_mappings:
+    environment_setup:
+      - "infrastructure"
+    data_setup:
+      - "databases"
+    migrations:
+      - "migrations"
+    services:
+      - "services"
+    validation:
+      - "validation"
