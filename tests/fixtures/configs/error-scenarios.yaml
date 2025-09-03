@@ -1,0 +1,77 @@
+phases:
+  - name: "failing-phase"
+    description: "Phase that fails to test error handling"
+    groups: ["failing_ops"]
+    continue_on_error: true
+    enabled: true
+    
+  - name: "recovery-phase"
+    description: "Phase that runs after failures"
+    groups: ["recovery_ops"]
+    depends_on: ["failing-phase"]
+    enabled: true
+    
+  - name: "timeout-phase"
+    description: "Phase with timeout operations"
+    groups: ["timeout_ops"]
+    enabled: true
+    
+  - name: "retry-phase"
+    description: "Phase with retry logic"
+    groups: ["retry_ops"]
+    enabled: true
+
+versions:
+  "1.0.0":
+    failing_ops:
+      - command: "exit 1"
+        description: "Command that always fails"
+        type: "script_exec"
+        timeout: 30
+        fail_on_error: true
+      - command: "echo 'This should still run'"
+        description: "Command after failure"
+        type: "script_exec"
+        timeout: 30
+        
+    recovery_ops:
+      - command: "echo 'Recovering from failures...'"
+        description: "Recovery command"
+        type: "script_exec"
+        timeout: 30
+        
+    timeout_ops:
+      - command: "sleep 100"
+        description: "Command that times out"
+        type: "script_exec"
+        timeout: 5
+        
+    retry_ops:
+      - command: "test -f /tmp/retry-marker || (touch /tmp/retry-marker && exit 1)"
+        description: "Command that succeeds on retry"
+        type: "script_exec"
+        timeout: 30
+        retry_count: 3
+        retry_delay: 1
+        
+    kubectl_missing_service:
+      - command: "get pods"
+        description: "Kubectl operation without service"
+        type: "kubectl_exec"
+        # Missing service field - should cause validation error
+        
+    http_invalid_json:
+      - command: "invalid json content"
+        description: "HTTP request with invalid JSON"
+        type: "http_request"
+        timeout: 30
+
+environment:
+  name: "error-test"
+  namespace: "test"
+
+execution:
+  dry_run: false
+  continue_on_error: true
+  verbose: true
+  log_level: "DEBUG"

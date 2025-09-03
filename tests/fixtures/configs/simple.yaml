@@ -1,0 +1,86 @@
+phases:
+  - name: "build"
+    description: "Build the application"
+    groups: ["compile", "package"]
+    enabled: true
+    
+  - name: "test"
+    description: "Test the application"
+    groups: ["unit_tests", "integration_tests"]
+    depends_on: ["build"]
+    enabled: true
+    
+  - name: "deploy"
+    description: "Deploy application"
+    groups: ["deployment", "health_check"]
+    depends_on: ["test"]
+    enabled: true
+
+versions:
+  "1.0.0":
+    compile:
+      - command: "make compile"
+        description: "Compile application"
+        type: "script_exec"
+        timeout: 300
+        retry_count: 1
+        retry_delay: 5
+    
+    package:
+      - command: "make package"
+        description: "Package application"
+        type: "script_exec"
+        timeout: 180
+    
+    unit_tests:
+      - command: "make test-unit"
+        description: "Run unit tests"
+        type: "script_exec"
+        timeout: 600
+        expected_output: "All tests passed"
+    
+    integration_tests:
+      - command: "make test-integration"
+        description: "Run integration tests"
+        type: "script_exec"
+        timeout: 900
+        test_command: "test -f /tmp/integration-results.xml"
+    
+    deployment:
+      - command: "kubectl apply -f manifests/"
+        description: "Deploy to Kubernetes"
+        type: "kubectl_apply"
+        timeout: 300
+        wait_for_ready: true
+    
+    health_check:
+      - command: '{"url": "http://app.example.com/health", "method": "GET"}'
+        description: "Check application health"
+        type: "http_request"
+        timeout: 30
+        retry_count: 5
+        retry_delay: 10
+        expected_output: "healthy"
+
+environment:
+  name: "development"
+  namespace: "dev"
+  context: "dev-cluster"
+  cluster: "development"
+  metadata:
+    region: "us-west-2"
+    team: "platform"
+
+execution:
+  dry_run: false
+  interactive: true
+  parallel: true
+  max_parallel: 3
+  continue_on_error: false
+  verbose: true
+  log_level: "INFO"
+
+metadata:
+  created_by: "phazr-test"
+  version: "1.0.0"
+  last_updated: "2023-01-01T00:00:00Z"

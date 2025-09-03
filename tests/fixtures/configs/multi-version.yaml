@@ -1,0 +1,81 @@
+phases:
+  - name: "build"
+    description: "Build application"
+    groups: ["compile"]
+    enabled: true
+    
+  - name: "test"
+    description: "Test application"
+    groups: ["tests"]
+    depends_on: ["build"]
+    enabled: true
+
+versions:
+  "1.0.0":
+    compile:
+      - command: "gcc -o app_v1 src/main.c"
+        description: "Compile v1.0.0"
+        type: "script_exec"
+        timeout: 120
+        metadata:
+          compiler_version: "gcc-9"
+          optimization: "-O2"
+    tests:
+      - command: "./app_v1 --test"
+        description: "Test v1.0.0"
+        type: "script_exec"
+        timeout: 60
+        expected_output: "v1.0.0 tests passed"
+        
+  "2.0.0":
+    compile:
+      - command: "gcc -std=c11 -o app_v2 src/main.c src/features.c"
+        description: "Compile v2.0.0"
+        type: "script_exec"
+        timeout: 180
+        metadata:
+          compiler_version: "gcc-11" 
+          optimization: "-O3"
+          features: "enhanced"
+    tests:
+      - command: "./app_v2 --test"
+        description: "Test v2.0.0"
+        type: "script_exec"
+        timeout: 90
+        expected_output: "v2.0.0 tests passed"
+      - command: "./app_v2 --test-features"
+        description: "Test v2.0.0 features"
+        type: "script_exec"
+        timeout: 120
+        
+  "3.0.0-beta":
+    compile:
+      - command: "clang++ -std=c++17 -o app_v3 src/main.cpp"
+        description: "Compile v3.0.0-beta (C++)"
+        type: "script_exec"
+        timeout: 200
+        metadata:
+          compiler: "clang++"
+          language: "c++"
+          version: "beta"
+    tests:
+      - command: "./app_v3 --test --verbose"
+        description: "Test v3.0.0-beta"
+        type: "script_exec"
+        timeout: 150
+        retry_count: 2
+        retry_delay: 5
+        metadata:
+          beta_testing: true
+
+environment:
+  name: "multi-version-test"
+  namespace: "default"
+  metadata:
+    test_type: "version_compatibility"
+    supported_versions: ["1.0.0", "2.0.0", "3.0.0-beta"]
+
+execution:
+  dry_run: false
+  verbose: true
+  log_level: "INFO"

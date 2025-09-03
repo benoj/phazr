@@ -1,0 +1,167 @@
+phases:
+  - name: "setup"
+    description: "Initial setup and environment preparation"
+    groups: ["init", "dependencies"]
+    enabled: true
+    
+  - name: "frontend-build"
+    description: "Build frontend components"
+    groups: ["frontend_compile", "frontend_assets"]
+    depends_on: ["setup"]
+    parallel_groups: true
+    enabled: true
+    
+  - name: "backend-build"
+    description: "Build backend services"
+    groups: ["backend_compile", "backend_tests"]
+    depends_on: ["setup"]
+    parallel_groups: true
+    enabled: true
+    
+  - name: "integration"
+    description: "Integration testing and validation"
+    groups: ["integration_tests", "e2e_tests"]
+    depends_on: ["frontend-build", "backend-build"]
+    continue_on_error: false
+    enabled: true
+    
+  - name: "staging-deploy"
+    description: "Deploy to staging environment"
+    groups: ["staging_deployment", "staging_verification"]
+    depends_on: ["integration"]
+    enabled: true
+    
+  - name: "production-deploy"
+    description: "Deploy to production environment"
+    groups: ["production_deployment", "production_verification"]
+    depends_on: ["staging-deploy"]
+    enabled: true
+
+versions:
+  "2.0.0":
+    init:
+      - command: "echo 'Initializing environment...'"
+        description: "Initialize environment"
+        type: "script_exec"
+        timeout: 60
+        
+    dependencies:
+      - command: "npm install"
+        description: "Install Node.js dependencies"
+        type: "script_exec"
+        timeout: 300
+      - command: "pip install -r requirements.txt"
+        description: "Install Python dependencies"
+        type: "script_exec"
+        timeout: 180
+        
+    frontend_compile:
+      - command: "npm run build:frontend"
+        description: "Compile frontend code"
+        type: "script_exec"
+        timeout: 600
+        test_command: "test -d dist/frontend"
+        
+    frontend_assets:
+      - command: "npm run assets:optimize"
+        description: "Optimize frontend assets"
+        type: "script_exec"
+        timeout: 300
+        
+    backend_compile:
+      - command: "python -m build"
+        description: "Build backend package"
+        type: "script_exec"
+        timeout: 400
+        
+    backend_tests:
+      - command: "pytest tests/unit/"
+        description: "Run backend unit tests"
+        type: "script_exec"
+        timeout: 600
+        expected_output: "passed"
+        
+    integration_tests:
+      - command: "pytest tests/integration/"
+        description: "Run integration tests"
+        type: "script_exec"
+        timeout: 1200
+        retry_count: 2
+        retry_delay: 30
+        
+    e2e_tests:
+      - command: "npm run test:e2e"
+        description: "Run end-to-end tests"
+        type: "script_exec"
+        timeout: 1800
+        
+    staging_deployment:
+      - command: "kubectl apply -f k8s/staging/"
+        description: "Deploy to staging cluster"
+        type: "kubectl_apply"
+        namespace: "staging"
+        timeout: 300
+        wait_for_ready: true
+      - command: "kubectl rollout status deployment/app-backend -n staging"
+        description: "Wait for backend deployment"
+        type: "kubectl_exec"
+        service: "app-backend"
+        namespace: "staging"
+        timeout: 600
+        
+    staging_verification:
+      - command: '{"url": "https://staging.example.com/health", "method": "GET"}'
+        description: "Verify staging deployment"
+        type: "http_request"
+        timeout: 60
+        retry_count: 10
+        retry_delay: 15
+        
+    production_deployment:
+      - command: "kubectl apply -f k8s/production/"
+        description: "Deploy to production cluster"
+        type: "kubectl_apply"
+        namespace: "production"
+        timeout: 300
+        wait_for_ready: true
+      - command: ""
+        description: "Restart production deployment"
+        type: "kubectl_restart"
+        service: "app-backend"
+        namespace: "production"
+        wait_for_ready: true
+        timeout: 900
+        
+    production_verification:
+      - command: '{"url": "https://api.example.com/health", "method": "GET"}'
+        description: "Verify production deployment"
+        type: "http_request"
+        timeout: 30
+        retry_count: 5
+        retry_delay: 20
+
+environment:
+  name: "production"
+  namespace: "default"
+  context: "prod-cluster"
+  cluster: "production-west"
+  metadata:
+    region: "us-west-1"
+    environment_type: "production"
+    cost_center: "engineering"
+
+execution:
+  dry_run: false
+  interactive: false
+  parallel: true
+  max_parallel: 5
+  continue_on_error: false
+  verbose: true
+  log_level: "INFO"
+
+metadata:
+  created_by: "ci-pipeline"
+  version: "2.0.0"
+  pipeline_id: "12345"
+  git_commit: "abc123def456"
+  build_number: 42

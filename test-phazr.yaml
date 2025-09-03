@@ -1,0 +1,101 @@
+phases:
+  - name: "setup"
+    description: "Setup test environment"
+    groups: ["install_deps"]
+    enabled: true
+    
+  - name: "unit-tests"
+    description: "Run unit tests"
+    groups: ["test_models", "test_handlers", "test_config"]
+    depends_on: ["setup"]
+    parallel_groups: true
+    enabled: true
+    
+  - name: "integration-tests"
+    description: "Run integration tests"
+    groups: ["test_orchestrator"]
+    depends_on: ["unit-tests"]
+    enabled: true
+    
+  - name: "e2e-tests"
+    description: "Run end-to-end tests"
+    groups: ["test_cli"]
+    depends_on: ["integration-tests"]
+    enabled: true
+    
+  - name: "coverage-report"
+    description: "Generate coverage report"
+    groups: ["generate_coverage"]
+    depends_on: ["e2e-tests"]
+    enabled: true
+
+versions:
+  "1.0.0":
+    install_deps:
+      - command: "pip install -e '.[dev]'"
+        description: "Install phazr with dev dependencies"
+        type: "script_exec"
+        timeout: 300
+        
+    test_models:
+      - command: "python3 -m pytest tests/unit/test_models.py -v"
+        description: "Run model unit tests"
+        type: "script_exec"
+        timeout: 120
+        expected_output: "passed"
+        
+    test_handlers:
+      - command: "python3 -m pytest tests/unit/test_handlers.py -v"
+        description: "Run handler unit tests"
+        type: "script_exec"
+        timeout: 120
+        expected_output: "passed"
+        
+    test_config:
+      - command: "python3 -m pytest tests/unit/test_config.py -v"
+        description: "Run config unit tests"
+        type: "script_exec"
+        timeout: 120
+        expected_output: "passed"
+        
+    test_orchestrator:
+      - command: "python3 -m pytest tests/integration/test_orchestrator.py -v"
+        description: "Run orchestrator integration tests"
+        type: "script_exec"
+        timeout: 180
+        retry_count: 1
+        retry_delay: 5
+        
+    test_cli:
+      - command: "python3 -m pytest tests/e2e/test_cli.py -v"
+        description: "Run CLI end-to-end tests"
+        type: "script_exec"
+        timeout: 150
+        
+    generate_coverage:
+      - command: "python3 -m pytest tests/ --cov=phazr --cov-report=term-missing --cov-report=html"
+        description: "Generate comprehensive coverage report"
+        type: "script_exec"
+        timeout: 300
+        expected_output: "passed"
+
+environment:
+  name: "phazr-testing"
+  namespace: "default"
+  metadata:
+    test_suite: "phazr-self-test"
+    version: "1.0.0"
+
+execution:
+  dry_run: false
+  interactive: false
+  parallel: true
+  max_parallel: 3
+  continue_on_error: false
+  verbose: true
+  log_level: "INFO"
+
+metadata:
+  description: "Phazr testing itself using phazr!"
+  created_by: "phazr-bootstrap"
+  self_test: true

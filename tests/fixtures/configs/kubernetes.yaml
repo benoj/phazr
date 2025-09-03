@@ -1,0 +1,103 @@
+phases:
+  - name: "k8s-setup"
+    description: "Kubernetes setup operations"
+    groups: ["namespace_setup", "secrets"]
+    enabled: true
+    
+  - name: "k8s-deploy"
+    description: "Deploy applications to Kubernetes"
+    groups: ["deploy_backend", "deploy_frontend"]
+    depends_on: ["k8s-setup"]
+    parallel_groups: true
+    enabled: true
+    
+  - name: "k8s-verify"
+    description: "Verify Kubernetes deployment"
+    groups: ["health_checks", "readiness_checks"]
+    depends_on: ["k8s-deploy"]
+    enabled: true
+
+versions:
+  "1.0.0":
+    namespace_setup:
+      - command: "apiVersion: v1\nkind: Namespace\nmetadata:\n  name: test-app"
+        description: "Create namespace"
+        type: "kubectl_apply"
+        timeout: 60
+        
+    secrets:
+      - command: "kubectl create secret generic app-secrets --from-literal=DB_PASSWORD=secret123"
+        description: "Create application secrets"
+        type: "script_exec"
+        timeout: 30
+        
+    deploy_backend:
+      - command: "manifests/backend-deployment.yaml"
+        description: "Deploy backend service"
+        type: "kubectl_apply"
+        namespace: "test-app"
+        timeout: 300
+        wait_for_ready: true
+      - command: ""
+        description: "Restart backend if needed"
+        type: "kubectl_restart"
+        service: "backend-api"
+        namespace: "test-app"
+        wait_for_ready: true
+        timeout: 300
+        
+    deploy_frontend:
+      - command: "manifests/frontend-deployment.yaml"
+        description: "Deploy frontend service"
+        type: "kubectl_apply"
+        namespace: "test-app"
+        timeout: 300
+      - command: "get pods"
+        description: "Check frontend pods"
+        type: "kubectl_exec"
+        service: "frontend-web"
+        container: "web"
+        namespace: "test-app"
+        timeout: 60
+        
+    health_checks:
+      - command: '{"url": "http://backend-api.test-app.svc.cluster.local:8080/health", "method": "GET"}'
+        description: "Backend health check"
+        type: "http_request"
+        timeout: 30
+        retry_count: 5
+        retry_delay: 10
+      - command: '{"url": "http://frontend-web.test-app.svc.cluster.local:3000/", "method": "GET"}'
+        description: "Frontend health check"
+        type: "http_request"
+        timeout: 30
+        retry_count: 3
+        retry_delay: 5
+        
+    readiness_checks:
+      - command: "kubectl wait --for=condition=Ready pod -l app=backend-api -n test-app --timeout=300s"
+        description: "Wait for backend readiness"
+        type: "script_exec"
+        timeout: 320
+      - command: "kubectl wait --for=condition=Ready pod -l app=frontend-web -n test-app --timeout=300s"
+        description: "Wait for frontend readiness"
+        type: "script_exec"
+        timeout: 320
+
+environment:
+  name: "kubernetes-test"
+  namespace: "test-app"
+  context: "test-cluster"
+  cluster: "minikube"
+  metadata:
+    k8s_version: "v1.24.0"
+    provider: "minikube"
+
+execution:
+  dry_run: false
+  interactive: false
+  parallel: true
+  max_parallel: 2
+  continue_on_error: false
+  verbose: true
+  log_level: "INFO"

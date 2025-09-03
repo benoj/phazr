@@ -134,10 +134,10 @@ def run(ctx, phase, version):
 @cli.command()
 @click.argument("input_files", nargs=-1, required=True)
 @click.option("--output", "-o", help="Output file path")
-@click.pass_context
-def merge(ctx, input_files, output):
+def merge(input_files, output):
     """Merge multiple configuration files."""
-    config_manager = ctx.obj["config_manager"]
+    # Create a fresh config manager for merging (doesn't need main config)
+    config_manager = ConfigManager()
     
     click.echo(f"Merging {len(input_files)} configuration files...")
     
@@ -150,11 +150,11 @@ def merge(ctx, input_files, output):
         else:
             # Print to stdout
             import yaml
-            print(yaml.dump(merged_config.dict(), default_flow_style=False))
+            print(yaml.dump(merged_config.model_dump(mode='json'), default_flow_style=False))
             
     except Exception as e:
         click.echo(f"Error merging configurations: {e}", err=True)
-        ctx.exit(1)
+        raise SystemExit(1)
 
 
 @cli.command()

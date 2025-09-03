@@ -140,3 +140,8 @@ class OrchestratorConfig(BaseModel):
     environment: EnvironmentConfig
     execution: ExecutionConfig = Field(default_factory=ExecutionConfig)
     metadata: Dict[str, Any] = Field(default_factory=dict)
+    
+    @property
+    def phase_mappings(self) -> Dict[str, List[str]]:
+        """Get phase to group mappings."""
+        return {phase.name: phase.groups for phase in self.phases}

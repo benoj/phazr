@@ -1,0 +1,15 @@
+phases:
+  - name: "build"
+    groups: ["build_ops"]
+    enabled: true
+
+versions:
+  "1.0.0":
+    build_ops:
+      - command: "echo 'Hello World'"
+        description: "Simple echo command"
+        type: "script_exec"
+
+environment:
+  name: "test"
+  namespace: "default"

@@ -102,16 +102,16 @@ class ConfigManager:
         """Save configuration to file."""
         output_path = Path(output_file)
         
-        # Convert to dict
-        config_dict = config.dict()
+        # Convert to dict using modern Pydantic API with enum serialization
+        config_dict = config.model_dump(mode='json')
         
         # Save based on extension
         if output_path.suffix in [".yaml", ".yml"]:
             with open(output_path, "w") as f:
-                yaml.dump(config_dict, f, default_flow_style=False)
+                yaml.dump(config_dict, f, default_flow_style=False, allow_unicode=True)
         elif output_path.suffix == ".json":
             with open(output_path, "w") as f:
-                json.dump(config_dict, f, indent=2)
+                json.dump(config_dict, f, indent=2, ensure_ascii=False)
         else:
             raise ValueError(f"Unsupported output format: {output_path.suffix}")
     
@@ -202,11 +202,6 @@ class ConfigManager:
         """Get phase to group mappings."""
         if self._config:
             return self._config.phase_mappings
-        
-        # Try to load from raw config
-        if self._raw_config:
-            config_section = self._raw_config.get("config", {})
-            return config_section.get("phase_mappings", {})
         
         return {}
     
