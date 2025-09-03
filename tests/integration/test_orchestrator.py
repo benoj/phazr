@@ -395,7 +395,8 @@ class TestOrchestrator:
         # Implementation depends on orchestrator's error handling
         # Check for a handler that's not registered by default
         assert (
-            orchestrator.handler_registry.get_handler(OperationType.HTTP_REQUEST) is None
+            orchestrator.handler_registry.get_handler(OperationType.HTTP_REQUEST)
+            is None
         )
         pass
 
