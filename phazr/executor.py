@@ -4,7 +4,7 @@ Core orchestration executor.
 
 import asyncio
 import time
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, cast
 
 from .display import DisplayManager
 from .handlers import HandlerRegistry
@@ -259,7 +259,7 @@ class Orchestrator:
         return True
 
     async def _execute_sequential(
-        self, operations: List[Operation], start_index: int = 0, total: int = None
+        self, operations: List[Operation], start_index: int = 0, total: Optional[int] = None
     ) -> List[ExecutionResult]:
         """Execute operations sequentially."""
         results = []
@@ -288,7 +288,7 @@ class Orchestrator:
         return results
 
     async def _execute_parallel(
-        self, operations: List[Operation], start_index: int = 0, total: int = None
+        self, operations: List[Operation], start_index: int = 0, total: Optional[int] = None
     ) -> List[ExecutionResult]:
         """Execute operations in parallel."""
         total = total or len(operations)
@@ -301,11 +301,9 @@ class Orchestrator:
         tasks = []
         for operation in operations:
             if self.config.execution.dry_run:
-                task = asyncio.create_task(
-                    asyncio.coroutine(
-                        lambda op=operation: self._create_dry_run_result(op)
-                    )()
-                )
+                async def dry_run_wrapper(op=operation):
+                    return self._create_dry_run_result(op)
+                task = asyncio.create_task(dry_run_wrapper())
             else:
                 task = asyncio.create_task(self._execute_operation(operation))
 
@@ -331,16 +329,16 @@ class Orchestrator:
                         duration=0.0,
                     )
                     results.append(error_result)
+                    # Show result
+                    idx = operations.index(operation) + start_index + 1
+                    self.display.show_operation_result(error_result, idx, total)
                 else:
-                    results.append(result)
-
-                # Show result
-                idx = operations.index(operation) + start_index + 1
-                self.display.show_operation_result(
-                    error_result if isinstance(result, Exception) else result,
-                    idx,
-                    total,
-                )
+                    # result should be ExecutionResult here since it's not an Exception
+                    execution_result = cast(ExecutionResult, result)
+                    results.append(execution_result)
+                    # Show result
+                    idx = operations.index(operation) + start_index + 1
+                    self.display.show_operation_result(execution_result, idx, total)
 
         return results
 

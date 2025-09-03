@@ -4,7 +4,7 @@ Prerequisite validators for the orchestration framework.
 
 import asyncio
 from abc import ABC, abstractmethod
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Union
 
 from .models import EnvironmentConfig
 
@@ -74,7 +74,7 @@ class KubernetesValidator(Validator):
 
     async def validate(self) -> Dict[str, Any]:
         """Check Kubernetes access."""
-        results = {"status": "passed", "checks": []}
+        results: Dict[str, Any] = {"status": "passed", "checks": []}
 
         # Check cluster connectivity
         kubectl_cmd = ["kubectl"]
@@ -206,14 +206,14 @@ class KubernetesValidator(Validator):
 class FileSystemValidator(Validator):
     """Validate file system requirements."""
 
-    def __init__(self, required_paths: List[str] = None):
+    def __init__(self, required_paths: Optional[List[str]] = None):
         self.required_paths = required_paths or []
 
     async def validate(self) -> Dict[str, Any]:
         """Check file system requirements."""
         from pathlib import Path
 
-        results = {"status": "passed", "paths": []}
+        results: Dict[str, Any] = {"status": "passed", "paths": []}
 
         for path_str in self.required_paths:
             path = Path(path_str)
@@ -242,12 +242,12 @@ class FileSystemValidator(Validator):
 class NetworkValidator(Validator):
     """Validate network connectivity."""
 
-    def __init__(self, endpoints: List[str] = None):
+    def __init__(self, endpoints: Optional[List[str]] = None):
         self.endpoints = endpoints or []
 
     async def validate(self) -> Dict[str, Any]:
         """Check network endpoints."""
-        results = {"status": "passed", "endpoints": []}
+        results: Dict[str, Any] = {"status": "passed", "endpoints": []}
 
         for endpoint in self.endpoints:
             try:
@@ -307,12 +307,12 @@ class PrerequisiteValidator:
         self.validators.append(validator)
 
     async def validate(
-        self, environment: EnvironmentConfig, required_tools: List[str] = None
+        self, environment: EnvironmentConfig, required_tools: Optional[List[str]] = None
     ) -> Dict[str, Any]:
         """Run all validators and aggregate results."""
 
         # Add default validators
-        validators = []
+        validators: List[Validator] = []
 
         # Tool validators
         if required_tools:

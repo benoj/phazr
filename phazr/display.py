@@ -3,7 +3,7 @@ Rich display utilities for better UI experience.
 """
 
 import time
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 from rich import box
 from rich.console import Console
@@ -26,8 +26,8 @@ class DisplayManager:
     def __init__(self, verbose: bool = False):
         self.console = Console()
         self.verbose = verbose
-        self._current_phase = None
-        self._start_time = None
+        self._current_phase: Optional[str] = None
+        self._start_time: Optional[float] = None
 
     def print_header(self):
         """Print application header."""

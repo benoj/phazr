@@ -163,7 +163,17 @@ class OrchestratorConfig(BaseModel):
         default_factory=list, description="Ordered list of phases to execute"
     )
     environment: EnvironmentConfig
-    execution: ExecutionConfig = Field(default_factory=ExecutionConfig)
+    execution: ExecutionConfig = Field(
+        default_factory=lambda: ExecutionConfig(
+            dry_run=False,
+            interactive=True, 
+            parallel=False,
+            max_parallel=5,
+            continue_on_error=False,
+            verbose=False,
+            log_level="INFO"
+        )
+    )
     metadata: Dict[str, Any] = Field(default_factory=dict)
 
     @property

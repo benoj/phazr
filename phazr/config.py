@@ -117,7 +117,7 @@ class ConfigManager:
 
     def merge_configs(self, *config_files: str) -> OrchestratorConfig:
         """Merge multiple configuration files."""
-        merged_raw = {}
+        merged_raw: Dict[str, Any] = {}
 
         for config_file in config_files:
             config_path = Path(config_file)
