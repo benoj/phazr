@@ -8,19 +8,13 @@ workflows with dependencies, parallel execution, and rich progress visualization
 __version__ = "1.0.0"
 __author__ = "Your Team"
 
-from .models import (
-    OperationType,
-    Phase,
-    Operation,
-    ExecutionResult,
-    PhaseResult,
-)
-from .executor import Orchestrator
 from .config import ConfigManager
+from .executor import Orchestrator
+from .models import ExecutionResult, Operation, OperationType, Phase, PhaseResult
 
 __all__ = [
     "OperationType",
-    "Phase", 
+    "Phase",
     "Operation",
     "ExecutionResult",
     "PhaseResult",

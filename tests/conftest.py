@@ -5,33 +5,31 @@ Shared pytest fixtures and test configuration.
 import asyncio
 import tempfile
 from pathlib import Path
-from typing import Dict, Any
+from unittest.mock import AsyncMock, Mock
+
 import pytest
 import yaml
-from unittest.mock import Mock, AsyncMock
 
+from phazr.config import ConfigManager
+from phazr.display import DisplayManager
+from phazr.executor import Orchestrator
+from phazr.handlers import HandlerRegistry
 from phazr.models import (
-    OrchestratorConfig,
     EnvironmentConfig,
     ExecutionConfig,
-    VersionConfig,
-    Phase,
     Operation,
     OperationType,
+    OrchestratorConfig,
+    Phase,
+    VersionConfig,
 )
-from phazr.config import ConfigManager
-from phazr.handlers import HandlerRegistry
-from phazr.executor import Orchestrator
-from phazr.display import DisplayManager
 
 
 @pytest.fixture
 def sample_environment():
     """Sample environment configuration."""
     return EnvironmentConfig(
-        name="test",
-        namespace="default",
-        variables={"TEST_VAR": "test_value"}
+        name="test", namespace="default", variables={"TEST_VAR": "test_value"}
     )
 
 
@@ -39,11 +37,7 @@ def sample_environment():
 def sample_execution_config():
     """Sample execution configuration."""
     return ExecutionConfig(
-        dry_run=False,
-        verbose=False,
-        parallel=True,
-        timeout=300,
-        log_level="INFO"
+        dry_run=False, verbose=False, parallel=True, timeout=300, log_level="INFO"
     )
 
 
@@ -56,7 +50,7 @@ def sample_operations():
                 command="echo 'Building...'",
                 description="Build application",
                 type=OperationType.SCRIPT_EXEC,
-                timeout=60
+                timeout=60,
             )
         ],
         "test": [
@@ -64,7 +58,7 @@ def sample_operations():
                 command="echo 'Testing...'",
                 description="Run tests",
                 type=OperationType.SCRIPT_EXEC,
-                timeout=120
+                timeout=120,
             )
         ],
         "deploy": [
@@ -72,9 +66,9 @@ def sample_operations():
                 command="echo 'Deploying...'",
                 description="Deploy application",
                 type=OperationType.SCRIPT_EXEC,
-                timeout=180
+                timeout=180,
             )
-        ]
+        ],
     }
 
 
@@ -82,51 +76,40 @@ def sample_operations():
 def sample_phases():
     """Sample phases for testing."""
     return [
-        Phase(
-            name="build",
-            description="Build phase",
-            groups=["build"],
-            enabled=True
-        ),
+        Phase(name="build", description="Build phase", groups=["build"], enabled=True),
         Phase(
             name="test",
-            description="Test phase", 
+            description="Test phase",
             groups=["test"],
             depends_on=["build"],
-            enabled=True
+            enabled=True,
         ),
         Phase(
             name="deploy",
             description="Deploy phase",
             groups=["deploy"],
             depends_on=["test"],
-            enabled=True
-        )
+            enabled=True,
+        ),
     ]
 
 
 @pytest.fixture
 def sample_version_config(sample_operations):
     """Sample version configuration."""
-    return VersionConfig(
-        version="1.0.0",
-        groups=sample_operations
-    )
+    return VersionConfig(version="1.0.0", groups=sample_operations)
 
 
 @pytest.fixture
 def sample_orchestrator_config(
-    sample_environment,
-    sample_execution_config, 
-    sample_phases,
-    sample_version_config
+    sample_environment, sample_execution_config, sample_phases, sample_version_config
 ):
     """Sample orchestrator configuration."""
     return OrchestratorConfig(
         versions={"1.0.0": sample_version_config},
         phases=sample_phases,
         environment=sample_environment,
-        execution=sample_execution_config
+        execution=sample_execution_config,
     )
 
 
@@ -144,7 +127,7 @@ def mock_display():
     """Mock display manager for testing."""
     display = Mock(spec=DisplayManager)
     display.start_phase = Mock()
-    display.end_phase = Mock() 
+    display.end_phase = Mock()
     display.start_operation = Mock()
     display.end_operation = Mock()
     display.show_error = Mock()
@@ -166,12 +149,12 @@ phases:
   - name: "build"
     description: "Build the application"
     groups: ["compile"]
-    
+
   - name: "test"
     description: "Test the application"
     groups: ["unit_test", "integration_test"]
     depends_on: ["build"]
-    
+
   - name: "deploy"
     description: "Deploy application"
     groups: ["deployment"]
@@ -184,19 +167,19 @@ versions:
         description: "Build app"
         type: "script_exec"
         timeout: 300
-    
+
     unit_test:
       - command: "echo 'Unit testing...'"
         description: "Run unit tests"
         type: "script_exec"
         timeout: 600
-    
+
     integration_test:
       - command: "echo 'Integration testing...'"
         description: "Run integration tests"
         type: "script_exec"
         timeout: 900
-    
+
     deployment:
       - command: "echo 'Deploying...'"
         description: "Deploy app"
@@ -236,22 +219,22 @@ def sample_config_file(tmp_path):
                 "name": "build",
                 "description": "Build application",
                 "groups": ["compile"],
-                "enabled": True
+                "enabled": True,
             },
             {
                 "name": "test",
-                "description": "Test application", 
+                "description": "Test application",
                 "groups": ["unit_tests"],
                 "depends_on": ["build"],
-                "enabled": True
+                "enabled": True,
             },
             {
                 "name": "deploy",
                 "description": "Deploy application",
                 "groups": ["deployment"],
                 "depends_on": ["test"],
-                "enabled": True
-            }
+                "enabled": True,
+            },
         ],
         "versions": {
             "1.0.0": {
@@ -260,7 +243,7 @@ def sample_config_file(tmp_path):
                         "command": "echo 'Building...'",
                         "description": "Build app",
                         "type": "script_exec",
-                        "timeout": 300
+                        "timeout": 300,
                     }
                 ],
                 "unit_tests": [
@@ -268,7 +251,7 @@ def sample_config_file(tmp_path):
                         "command": "echo 'Testing...'",
                         "description": "Run tests",
                         "type": "script_exec",
-                        "timeout": 600
+                        "timeout": 600,
                     }
                 ],
                 "deployment": [
@@ -276,29 +259,29 @@ def sample_config_file(tmp_path):
                         "command": "echo 'Deploying...'",
                         "description": "Deploy app",
                         "type": "script_exec",
-                        "timeout": 1200
+                        "timeout": 1200,
                     }
-                ]
+                ],
             }
         },
         "environment": {
             "name": "test",
             "namespace": "default",
-            "context": "test-cluster"
+            "context": "test-cluster",
         },
         "execution": {
             "dry_run": False,
             "verbose": False,
             "parallel": True,
             "timeout": 3600,
-            "log_level": "INFO"
-        }
+            "log_level": "INFO",
+        },
     }
-    
+
     config_file = tmp_path / "test_config.yaml"
     with open(config_file, "w") as f:
         yaml.dump(config_data, f)
-    
+
     return config_file
 
 
@@ -314,7 +297,7 @@ def orchestrator(sample_orchestrator_config, mock_handler_registry, mock_display
     return Orchestrator(
         config=sample_orchestrator_config,
         handler_registry=mock_handler_registry,
-        display=mock_display
+        display=mock_display,
     )
 
 
@@ -343,22 +326,22 @@ def event_loop():
 # Test utilities
 class AsyncContextManager:
     """Helper class for testing async context managers."""
-    
+
     def __init__(self, return_value=None):
         self.return_value = return_value
-    
+
     async def __aenter__(self):
         return self.return_value
-    
+
     async def __aexit__(self, exc_type, exc_val, exc_tb):
         pass
 
 
 def create_mock_operation(
     command: str = "echo test",
-    description: str = "Test operation", 
+    description: str = "Test operation",
     op_type: OperationType = OperationType.SCRIPT_EXEC,
-    **kwargs
+    **kwargs,
 ) -> Operation:
     """Create a mock operation with default values."""
     defaults = {
@@ -367,27 +350,19 @@ def create_mock_operation(
         "retry_delay": 10,
     }
     defaults.update(kwargs)
-    
-    return Operation(
-        command=command,
-        description=description,
-        type=op_type,
-        **defaults
-    )
+
+    return Operation(command=command, description=description, type=op_type, **defaults)
 
 
 def create_mock_phase(
-    name: str = "test_phase",
-    groups: list = None,
-    depends_on: list = None,
-    **kwargs
+    name: str = "test_phase", groups: list = None, depends_on: list = None, **kwargs
 ) -> Phase:
     """Create a mock phase with default values."""
     if groups is None:
         groups = ["test_group"]
     if depends_on is None:
         depends_on = []
-        
+
     defaults = {
         "description": f"Test phase: {name}",
         "enabled": True,
@@ -395,10 +370,5 @@ def create_mock_phase(
         "parallel_groups": False,
     }
     defaults.update(kwargs)
-    
-    return Phase(
-        name=name,
-        groups=groups,
-        depends_on=depends_on,
-        **defaults
-    )
+
+    return Phase(name=name, groups=groups, depends_on=depends_on, **defaults)
