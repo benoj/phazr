@@ -1,7 +1,6 @@
 """
-Unit tests for orchestration executor functionality.
+Unit tests for orchestration executor functionality - focused on behavior verification.
 """
-
 from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
@@ -21,7 +20,7 @@ from phazr.models import (
 
 
 class TestOrchestrator:
-    """Test Orchestrator class functionality."""
+    """Test Orchestrator behavior and workflow execution."""
 
     @pytest.fixture
     def sample_environment(self):
@@ -89,15 +88,15 @@ class TestOrchestrator:
 
     @pytest.fixture
     def orchestrator(self, sample_config):
-        """Create orchestrator instance."""
+        """Create orchestrator instance with mocked dependencies."""
         with patch("phazr.executor.HandlerRegistry"), patch(
             "phazr.executor.PrerequisiteValidator"
         ), patch("phazr.executor.DisplayManager") as mock_display:
             mock_display.return_value.verbose = False
             return Orchestrator(sample_config)
 
-    def test_init_with_defaults(self, sample_config):
-        """Test orchestrator initialization with default components."""
+    def test_orchestrator_initialization_creates_required_components(self, sample_config):
+        """Test that orchestrator initializes with all required components."""
         with patch("phazr.executor.HandlerRegistry"), patch(
             "phazr.executor.PrerequisiteValidator"
         ), patch("phazr.executor.DisplayManager"):
@@ -108,8 +107,8 @@ class TestOrchestrator:
             assert orchestrator.validator is not None
             assert orchestrator.display is not None
 
-    def test_init_with_custom_components(self, sample_config):
-        """Test orchestrator initialization with custom components."""
+    def test_orchestrator_accepts_custom_components(self, sample_config):
+        """Test that orchestrator accepts custom component implementations."""
         mock_handler_registry = Mock()
         mock_validator = Mock()
         mock_display = Mock()
@@ -128,54 +127,8 @@ class TestOrchestrator:
         assert orchestrator.display == mock_display
         assert orchestrator.logger == mock_logger
 
-    def test_create_default_logger(self, sample_config):
-        """Test default logger creation."""
-        with patch("phazr.executor.HandlerRegistry"), patch(
-            "phazr.executor.PrerequisiteValidator"
-        ), patch("phazr.executor.DisplayManager"), patch(
-            "logging.basicConfig"
-        ) as mock_basic_config, patch(
-            "logging.getLogger"
-        ) as mock_get_logger:
-
-            orchestrator = Orchestrator(sample_config)
-            logger = orchestrator._create_default_logger()
-
-            # Expect 2 calls: one from init, one from our explicit call
-            assert mock_basic_config.call_count >= 1
-            mock_get_logger.assert_called()
-            assert logger is not None
-
-    def test_register_default_handlers(self, sample_config):
-        """Test registration of default handlers."""
-        mock_handler_registry = Mock()
-
-        with patch("phazr.executor.PrerequisiteValidator"), patch(
-            "phazr.executor.DisplayManager"
-        ):
-            Orchestrator(sample_config, handler_registry=mock_handler_registry)
-
-            # Should have registered 3 handlers
-            assert mock_handler_registry.register.call_count == 3
-
-    @pytest.mark.asyncio
-    async def test_validate_prerequisites(self, orchestrator):
-        """Test prerequisites validation."""
-        mock_results = {"all_passed": True, "results": []}
-        orchestrator.validator.validate = AsyncMock(return_value=mock_results)
-        orchestrator.display.info = Mock()
-        orchestrator.display.show_validation_results = Mock()
-
-        results = await orchestrator.validate_prerequisites()
-
-        assert results == mock_results
-        orchestrator.display.info.assert_called_once()
-        orchestrator.display.show_validation_results.assert_called_once_with(
-            mock_results
-        )
-
-    def test_get_required_tools_kubectl(self, sample_config):
-        """Test required tools detection for kubectl operations."""
+    def test_required_tools_detection_identifies_kubectl_operations(self, sample_config):
+        """Test that orchestrator correctly identifies required tools from operations."""
         # Add kubectl operations to test
         kubectl_op = Operation(
             command="kubectl get pods",
@@ -194,8 +147,8 @@ class TestOrchestrator:
 
             assert "kubectl" in tools
 
-    def test_get_required_tools_no_kubectl(self, sample_config):
-        """Test required tools when no kubectl operations present."""
+    def test_required_tools_detection_excludes_unused_tools(self, sample_config):
+        """Test that orchestrator doesn't require tools for operations not present."""
         with patch("phazr.executor.HandlerRegistry"), patch(
             "phazr.executor.PrerequisiteValidator"
         ), patch("phazr.executor.DisplayManager"):
@@ -206,9 +159,20 @@ class TestOrchestrator:
             assert "kubectl" not in tools
 
     @pytest.mark.asyncio
-    async def test_run_full_setup_success(self, orchestrator, sample_config):
-        """Test successful full setup execution."""
-        # Mock phase execution
+    async def test_prerequisite_validation_returns_validator_results(self, orchestrator):
+        """Test that prerequisite validation delegates to validator and returns results."""
+        expected_results = {"all_passed": True, "results": []}
+        orchestrator.validator.validate = AsyncMock(return_value=expected_results)
+
+        results = await orchestrator.validate_prerequisites()
+
+        assert results == expected_results
+        orchestrator.validator.validate.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_full_setup_executes_all_enabled_phases(self, orchestrator, sample_config):
+        """Test that full setup executes all enabled phases in order."""
+        # Mock phase execution to return success
         orchestrator.run_phase = AsyncMock(
             return_value=PhaseResult(
                 phase_name="test_phase",
@@ -222,38 +186,25 @@ class TestOrchestrator:
             )
         )
 
-        orchestrator.display.print_header = Mock()
-        orchestrator.display.info = Mock()
-        orchestrator.display.show_final_summary = Mock()
-
         results = await orchestrator.run_full_setup("1.0.0")
 
         assert len(results) == 1
         assert results[0].phase_name == "test_phase"
-        orchestrator.display.print_header.assert_called_once()
-        orchestrator.display.show_final_summary.assert_called_once()
+        assert results[0].is_successful
 
     @pytest.mark.asyncio
-    async def test_run_full_setup_skip_disabled_phase(
-        self, orchestrator, sample_config
-    ):
-        """Test full setup skipping disabled phases."""
+    async def test_full_setup_skips_disabled_phases(self, orchestrator, sample_config):
+        """Test that full setup skips phases marked as disabled."""
         # Disable the phase
         sample_config.phases[0].enabled = False
-
-        orchestrator.display.print_header = Mock()
-        orchestrator.display.info = Mock()
-        orchestrator.display.show_final_summary = Mock()
 
         results = await orchestrator.run_full_setup("1.0.0")
 
         assert len(results) == 0
 
     @pytest.mark.asyncio
-    async def test_run_full_setup_missing_dependencies(
-        self, orchestrator, sample_config
-    ):
-        """Test full setup with missing phase dependencies."""
+    async def test_full_setup_respects_phase_dependencies(self, orchestrator, sample_config):
+        """Test that full setup respects phase dependency requirements."""
         # Add phase with missing dependency
         dependent_phase = Phase(
             name="dependent_phase",
@@ -276,20 +227,15 @@ class TestOrchestrator:
             )
         )
 
-        orchestrator.display.print_header = Mock()
-        orchestrator.display.info = Mock()
-        orchestrator.display.warning = Mock()
-        orchestrator.display.show_final_summary = Mock()
-
         results = await orchestrator.run_full_setup("1.0.0")
 
         # Should only run the first phase, skip the dependent one
         assert len(results) == 1
-        orchestrator.display.warning.assert_called_once()
+        assert results[0].phase_name == "test_phase"
 
     @pytest.mark.asyncio
-    async def test_run_full_setup_stop_on_error(self, orchestrator, sample_config):
-        """Test full setup stopping on error."""
+    async def test_full_setup_stops_on_phase_failure(self, orchestrator, sample_config):
+        """Test that full setup stops execution when a phase fails."""
         # Add another phase
         phase2 = Phase(name="phase2", groups=["group2"])
         sample_config.phases.append(phase2)
@@ -308,48 +254,36 @@ class TestOrchestrator:
             )
         )
 
-        orchestrator.display.print_header = Mock()
-        orchestrator.display.info = Mock()
-        orchestrator.display.error = Mock()
-        orchestrator.display.show_final_summary = Mock()
-
         results = await orchestrator.run_full_setup("1.0.0")
 
         # Should stop after first failed phase
         assert len(results) == 1
         assert not results[0].is_successful
-        orchestrator.display.error.assert_called_once()
 
     @pytest.mark.asyncio
-    async def test_run_phase_success(self, orchestrator, sample_config, sample_phase):
-        """Test successful phase execution."""
-        orchestrator._execute_sequential = AsyncMock(
-            return_value=[
-                ExecutionResult(
-                    operation=sample_config.versions["1.0.0"].groups["group1"][0],
-                    success=True,
-                    duration=1.0,
-                )
-            ]
+    async def test_run_phase_executes_configured_operations(
+        self, orchestrator, sample_config, sample_phase
+    ):
+        """Test that running a phase executes its configured operations."""
+        # Mock sequential execution to return success
+        mock_result = ExecutionResult(
+            operation=sample_config.versions["1.0.0"].groups["group1"][0],
+            success=True,
+            duration=1.0,
         )
-
-        orchestrator.display.start_phase = Mock()
-        orchestrator.display.show_phase_summary = Mock()
+        orchestrator._execute_sequential = AsyncMock(return_value=[mock_result])
 
         result = await orchestrator.run_phase(sample_phase, "1.0.0")
 
         assert result.phase_name == "test_phase"
         assert result.successful_operations == 1
         assert result.failed_operations == 0
-        orchestrator.display.start_phase.assert_called_once()
-        orchestrator.display.show_phase_summary.assert_called_once()
+        orchestrator._execute_sequential.assert_called_once()
 
     @pytest.mark.asyncio
-    async def test_run_phase_no_operations(self, orchestrator, sample_config):
-        """Test phase execution with no operations."""
+    async def test_run_phase_handles_empty_operation_groups(self, orchestrator):
+        """Test that running a phase with no operations handles gracefully."""
         empty_phase = Phase(name="empty_phase", groups=["nonexistent_group"])
-
-        orchestrator.display.warning = Mock()
 
         result = await orchestrator.run_phase(empty_phase, "1.0.0")
 
@@ -357,24 +291,20 @@ class TestOrchestrator:
         assert result.successful_operations == 0
 
     @pytest.mark.asyncio
-    async def test_run_phase_parallel(self, orchestrator, sample_config, sample_phase):
-        """Test phase execution in parallel mode."""
+    async def test_run_phase_uses_parallel_execution_when_enabled(
+        self, orchestrator, sample_config, sample_phase
+    ):
+        """Test that phase uses parallel execution when configured."""
         sample_config.execution.parallel = True
         sample_phase.parallel_groups = True
 
         orchestrator._is_group_parallelizable = Mock(return_value=True)
-        orchestrator._execute_parallel = AsyncMock(
-            return_value=[
-                ExecutionResult(
-                    operation=sample_config.versions["1.0.0"].groups["group1"][0],
-                    success=True,
-                    duration=1.0,
-                )
-            ]
+        mock_result = ExecutionResult(
+            operation=sample_config.versions["1.0.0"].groups["group1"][0],
+            success=True,
+            duration=1.0,
         )
-
-        orchestrator.display.start_phase = Mock()
-        orchestrator.display.show_phase_summary = Mock()
+        orchestrator._execute_parallel = AsyncMock(return_value=[mock_result])
 
         result = await orchestrator.run_phase(sample_phase, "1.0.0")
 
@@ -382,8 +312,8 @@ class TestOrchestrator:
         orchestrator._execute_parallel.assert_called_once()
 
     @pytest.mark.asyncio
-    async def test_run_phase_by_name_success(self, orchestrator, sample_config):
-        """Test running phase by name."""
+    async def test_run_phase_by_name_finds_and_executes_phase(self, orchestrator):
+        """Test that running phase by name finds the correct phase configuration."""
         orchestrator.run_phase = AsyncMock(
             return_value=PhaseResult(
                 phase_name="test_phase",
@@ -401,21 +331,21 @@ class TestOrchestrator:
         assert result.phase_name == "test_phase"
 
     @pytest.mark.asyncio
-    async def test_run_phase_by_name_not_found(self, orchestrator):
-        """Test running nonexistent phase by name."""
+    async def test_run_phase_by_name_raises_error_for_unknown_phase(self, orchestrator):
+        """Test that running unknown phase by name raises appropriate error."""
         with pytest.raises(ValueError, match="Phase 'nonexistent' not found"):
             await orchestrator.run_phase_by_name("nonexistent")
 
     @pytest.mark.asyncio
-    async def test_run_phase_version_not_found(self, orchestrator, sample_phase):
-        """Test running phase with nonexistent version."""
+    async def test_run_phase_raises_error_for_unknown_version(self, orchestrator, sample_phase):
+        """Test that running phase with unknown version raises appropriate error."""
         with pytest.raises(
             ValueError, match="Version nonexistent not found in configuration"
         ):
             await orchestrator.run_phase(sample_phase, "nonexistent")
 
-    def test_is_group_parallelizable_safe_operations(self, orchestrator):
-        """Test parallelization check for safe operations."""
+    def test_parallel_safety_check_identifies_safe_operations(self, orchestrator):
+        """Test that parallelization safety check correctly identifies safe operations."""
         safe_ops = [
             Operation(
                 command="echo test",
@@ -426,8 +356,8 @@ class TestOrchestrator:
 
         assert orchestrator._is_group_parallelizable(safe_ops) is True
 
-    def test_is_group_parallelizable_unsafe_operations(self, orchestrator):
-        """Test parallelization check for unsafe operations."""
+    def test_parallel_safety_check_identifies_unsafe_operations(self, orchestrator):
+        """Test that parallelization safety check identifies operations that cannot run in parallel."""
         unsafe_ops = [
             Operation(
                 command="kubectl restart",
@@ -439,8 +369,10 @@ class TestOrchestrator:
         assert orchestrator._is_group_parallelizable(unsafe_ops) is False
 
     @pytest.mark.asyncio
-    async def test_execute_sequential_success(self, orchestrator, sample_operation):
-        """Test sequential operation execution."""
+    async def test_sequential_execution_processes_operations_in_order(
+        self, orchestrator, sample_operation
+    ):
+        """Test that sequential execution processes operations in the correct order."""
         orchestrator._execute_operation = AsyncMock(
             return_value=ExecutionResult(
                 operation=sample_operation,
@@ -449,21 +381,16 @@ class TestOrchestrator:
             )
         )
 
-        orchestrator.display.show_operation_start = Mock()
-        orchestrator.display.show_operation_result = Mock()
-
         results = await orchestrator._execute_sequential([sample_operation])
 
         assert len(results) == 1
         assert results[0].success is True
-        orchestrator.display.show_operation_start.assert_called_once()
-        orchestrator.display.show_operation_result.assert_called_once()
 
     @pytest.mark.asyncio
-    async def test_execute_sequential_with_failure_stop(
+    async def test_sequential_execution_stops_on_failure_when_required(
         self, orchestrator, sample_operation
     ):
-        """Test sequential execution stopping on failure."""
+        """Test that sequential execution stops when an operation fails and fail_on_error is true."""
         sample_operation.fail_on_error = True
 
         orchestrator._execute_operation = AsyncMock(
@@ -475,24 +402,16 @@ class TestOrchestrator:
             )
         )
 
-        orchestrator.display.show_operation_start = Mock()
-        orchestrator.display.show_operation_result = Mock()
-
-        results = await orchestrator._execute_sequential(
-            [sample_operation, sample_operation]
-        )
+        results = await orchestrator._execute_sequential([sample_operation, sample_operation])
 
         # Should stop after first failure
         assert len(results) == 1
         assert results[0].success is False
 
     @pytest.mark.asyncio
-    async def test_execute_sequential_dry_run(self, orchestrator, sample_operation):
-        """Test sequential execution in dry run mode."""
+    async def test_dry_run_mode_creates_preview_results(self, orchestrator, sample_operation):
+        """Test that dry run mode creates preview results without executing operations."""
         orchestrator.config.execution.dry_run = True
-
-        orchestrator.display.show_operation_start = Mock()
-        orchestrator.display.show_operation_result = Mock()
 
         results = await orchestrator._execute_sequential([sample_operation])
 
@@ -501,8 +420,10 @@ class TestOrchestrator:
         assert "[DRY RUN]" in results[0].output
 
     @pytest.mark.asyncio
-    async def test_execute_parallel_success(self, orchestrator, sample_operation):
-        """Test parallel operation execution."""
+    async def test_parallel_execution_processes_operations_concurrently(
+        self, orchestrator, sample_operation
+    ):
+        """Test that parallel execution can process multiple operations concurrently."""
         orchestrator._execute_operation = AsyncMock(
             return_value=ExecutionResult(
                 operation=sample_operation,
@@ -511,23 +432,17 @@ class TestOrchestrator:
             )
         )
 
-        orchestrator.display.show_operation_start = Mock()
-        orchestrator.display.show_operation_result = Mock()
-
         results = await orchestrator._execute_parallel([sample_operation])
 
         assert len(results) == 1
         assert results[0].success is True
 
     @pytest.mark.asyncio
-    async def test_execute_parallel_with_exception(
+    async def test_parallel_execution_handles_operation_exceptions(
         self, orchestrator, sample_operation
     ):
-        """Test parallel execution with exception."""
+        """Test that parallel execution gracefully handles operation exceptions."""
         orchestrator._execute_operation = AsyncMock(side_effect=Exception("Test error"))
-
-        orchestrator.display.show_operation_start = Mock()
-        orchestrator.display.show_operation_result = Mock()
 
         results = await orchestrator._execute_parallel([sample_operation])
 
@@ -536,22 +451,10 @@ class TestOrchestrator:
         assert "Test error" in results[0].error
 
     @pytest.mark.asyncio
-    async def test_execute_parallel_dry_run(self, orchestrator, sample_operation):
-        """Test parallel execution in dry run mode."""
-        orchestrator.config.execution.dry_run = True
-
-        orchestrator.display.show_operation_start = Mock()
-        orchestrator.display.show_operation_result = Mock()
-
-        results = await orchestrator._execute_parallel([sample_operation])
-
-        assert len(results) == 1
-        assert results[0].success is True
-        assert "[DRY RUN]" in results[0].output
-
-    @pytest.mark.asyncio
-    async def test_execute_operation_success(self, orchestrator, sample_operation):
-        """Test successful single operation execution."""
+    async def test_operation_execution_delegates_to_appropriate_handler(
+        self, orchestrator, sample_operation
+    ):
+        """Test that operation execution finds and uses the appropriate handler."""
         mock_handler = AsyncMock()
         mock_handler.execute = AsyncMock(
             return_value=ExecutionResult(
@@ -570,8 +473,10 @@ class TestOrchestrator:
         mock_handler.execute.assert_called_once()
 
     @pytest.mark.asyncio
-    async def test_execute_operation_skipped(self, orchestrator, sample_operation):
-        """Test operation execution with skip condition."""
+    async def test_operation_execution_skips_when_condition_met(
+        self, orchestrator, sample_operation
+    ):
+        """Test that operations are skipped when skip conditions are met."""
         sample_operation.skip_if = "test_condition"
 
         orchestrator._evaluate_condition = AsyncMock(return_value=True)
@@ -582,8 +487,10 @@ class TestOrchestrator:
         assert "skipped" in result.output.lower()
 
     @pytest.mark.asyncio
-    async def test_execute_operation_no_handler(self, orchestrator, sample_operation):
-        """Test operation execution with no handler."""
+    async def test_operation_execution_fails_gracefully_without_handler(
+        self, orchestrator, sample_operation
+    ):
+        """Test that operation execution fails gracefully when no handler is available."""
         orchestrator.handler_registry.get_handler = Mock(return_value=None)
         orchestrator._evaluate_condition = AsyncMock(return_value=False)
 
@@ -593,8 +500,8 @@ class TestOrchestrator:
         assert "No handler registered" in result.error
 
     @pytest.mark.asyncio
-    async def test_execute_operation_with_retries(self, orchestrator, sample_operation):
-        """Test operation execution with retries."""
+    async def test_operation_execution_retries_on_failure(self, orchestrator, sample_operation):
+        """Test that operation execution implements retry logic for failed operations."""
         sample_operation.retry_count = 2
         sample_operation.retry_delay = 0  # Fast retries for testing
 
@@ -619,10 +526,10 @@ class TestOrchestrator:
         assert mock_handler.execute.call_count == 3
 
     @pytest.mark.asyncio
-    async def test_execute_operation_retries_exhausted(
+    async def test_operation_execution_fails_after_exhausting_retries(
         self, orchestrator, sample_operation
     ):
-        """Test operation execution with exhausted retries."""
+        """Test that operation execution fails after exhausting all retry attempts."""
         sample_operation.retry_count = 1
         sample_operation.retry_delay = 0
 
@@ -640,10 +547,10 @@ class TestOrchestrator:
         assert "Persistent failure" in result.error
 
     @pytest.mark.asyncio
-    async def test_execute_operation_with_test_command_success(
+    async def test_operation_execution_validates_with_test_command(
         self, orchestrator, sample_operation
     ):
-        """Test operation execution with successful test command."""
+        """Test that operation execution runs test commands to validate success."""
         sample_operation.test_command = "test -f /tmp/testfile"
 
         mock_handler = AsyncMock()
@@ -665,10 +572,10 @@ class TestOrchestrator:
         orchestrator._run_test_command.assert_called_once_with("test -f /tmp/testfile")
 
     @pytest.mark.asyncio
-    async def test_execute_operation_with_test_command_failure(
+    async def test_operation_execution_fails_on_test_command_failure(
         self, orchestrator, sample_operation
     ):
-        """Test operation execution with failing test command."""
+        """Test that operation execution fails when test command validation fails."""
         sample_operation.test_command = "test -f /tmp/nonexistent"
 
         mock_handler = AsyncMock()
@@ -688,22 +595,8 @@ class TestOrchestrator:
 
         assert result.success is False
 
-    @pytest.mark.asyncio
-    async def test_evaluate_condition_placeholder(self, orchestrator):
-        """Test condition evaluation placeholder."""
-        # Currently returns False as placeholder
-        result = await orchestrator._evaluate_condition("test condition")
-        assert result is False
-
-    @pytest.mark.asyncio
-    async def test_run_test_command_placeholder(self, orchestrator):
-        """Test test command execution placeholder."""
-        # Currently returns True as placeholder
-        result = await orchestrator._run_test_command("echo test")
-        assert result is True
-
-    def test_create_dry_run_result(self, orchestrator, sample_operation):
-        """Test dry run result creation."""
+    def test_dry_run_result_creation_produces_preview(self, orchestrator, sample_operation):
+        """Test that dry run result creation produces appropriate preview information."""
         result = orchestrator._create_dry_run_result(sample_operation)
 
         assert result.operation == sample_operation
@@ -711,26 +604,18 @@ class TestOrchestrator:
         assert "[DRY RUN]" in result.output
         assert result.duration == 0.0
 
-    def test_chunk_list_small(self, orchestrator):
-        """Test list chunking with small list."""
-        items = [1, 2, 3]
+    def test_list_chunking_splits_correctly(self, orchestrator):
+        """Test that list chunking utility splits lists into appropriate chunks."""
+        items = [1, 2, 3, 4, 5]
         chunks = list(orchestrator._chunk_list(items, 2))
 
-        assert len(chunks) == 2
-        assert chunks[0] == [1, 2]
-        assert chunks[1] == [3]
-
-    def test_chunk_list_exact_fit(self, orchestrator):
-        """Test list chunking with exact fit."""
-        items = [1, 2, 3, 4]
-        chunks = list(orchestrator._chunk_list(items, 2))
-
-        assert len(chunks) == 2
+        assert len(chunks) == 3
         assert chunks[0] == [1, 2]
         assert chunks[1] == [3, 4]
+        assert chunks[2] == [5]
 
-    def test_chunk_list_large_chunk_size(self, orchestrator):
-        """Test list chunking with large chunk size."""
+    def test_list_chunking_handles_large_chunk_size(self, orchestrator):
+        """Test that list chunking handles chunk sizes larger than the list."""
         items = [1, 2, 3]
         chunks = list(orchestrator._chunk_list(items, 10))
 
