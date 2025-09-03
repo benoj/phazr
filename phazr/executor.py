@@ -259,7 +259,10 @@ class Orchestrator:
         return True
 
     async def _execute_sequential(
-        self, operations: List[Operation], start_index: int = 0, total: Optional[int] = None
+        self,
+        operations: List[Operation],
+        start_index: int = 0,
+        total: Optional[int] = None,
     ) -> List[ExecutionResult]:
         """Execute operations sequentially."""
         results = []
@@ -288,7 +291,10 @@ class Orchestrator:
         return results
 
     async def _execute_parallel(
-        self, operations: List[Operation], start_index: int = 0, total: Optional[int] = None
+        self,
+        operations: List[Operation],
+        start_index: int = 0,
+        total: Optional[int] = None,
     ) -> List[ExecutionResult]:
         """Execute operations in parallel."""
         total = total or len(operations)
@@ -301,8 +307,10 @@ class Orchestrator:
         tasks = []
         for operation in operations:
             if self.config.execution.dry_run:
+
                 async def dry_run_wrapper(op=operation):
                     return self._create_dry_run_result(op)
+
                 task = asyncio.create_task(dry_run_wrapper())
             else:
                 task = asyncio.create_task(self._execute_operation(operation))

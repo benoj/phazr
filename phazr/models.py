@@ -166,12 +166,12 @@ class OrchestratorConfig(BaseModel):
     execution: ExecutionConfig = Field(
         default_factory=lambda: ExecutionConfig(
             dry_run=False,
-            interactive=True, 
+            interactive=True,
             parallel=False,
             max_parallel=5,
             continue_on_error=False,
             verbose=False,
-            log_level="INFO"
+            log_level="INFO",
         )
     )
     metadata: Dict[str, Any] = Field(default_factory=dict)
