@@ -45,6 +45,7 @@ dev = [
     "black>=22.0",
     "mypy>=1.0",
     "ruff>=0.1",
+    "types-PyYAML>=6.0",
 ]
 
 [project.scripts]
